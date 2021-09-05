@@ -4,32 +4,34 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 )
 
 func main() {
+	var wg sync.WaitGroup
 	now := time.Now()
+	wg.Add(1024)
 	hostname := "192.168.1.1"
 	protocol := "tcp"
-	var b bool
 	for i := 1; i < 1025; i++ {
-		b = Scanport(hostname, protocol, i)
-		if b {
-			fmt.Println("Port ", i, " is open")
-		} else {
-			fmt.Println("Port ", i, " is closed")
-		}
+		go Scanport(hostname, protocol, i, &wg)
 	}
+	wg.Wait()
 	fmt.Println("Time taken to scan 1024 ports: ", time.Since(now))
 
 }
 
-func Scanport(hostname, protocol string, port int) bool {
+func Scanport(hostname, protocol string, port int, wg *sync.WaitGroup) {
+	defer wg.Done()
 	address := hostname + ":" + strconv.Itoa(port)
-	con, err := net.DialTimeout(protocol, address, 10*time.Second)
-	defer con.Close()
-	if err != nil {
-		return true
+	con, err := net.Dial(protocol, address)
+	if con != nil {
+		defer con.Close()
 	}
-	return false
+	if err != nil {
+		return
+	}
+	fmt.Println("Port ", port, " is open")
+	return
 }
